@@ -7,7 +7,7 @@ import os
 # =============================================
 # 모델 로드
 # =============================================
-BASE = r"C:\new_care_label"
+BASE = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE, "unified_best.pt")
 model = YOLO(MODEL_PATH)
 
