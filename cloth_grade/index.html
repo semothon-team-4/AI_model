@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>👕 옷 품질 등급 AI</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+    }
+
+    h1 { font-size: 1.5rem; font-weight: 700; color: #1a1a2e; margin-bottom: 24px; }
+
+    /* ── 촬영 가이드 ── */
+    .guide-card {
+      background: white;
+      border-radius: 16px;
+      padding: 16px 20px;
+      width: 100%; max-width: 420px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      margin-bottom: 12px;
+    }
+    .guide-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #374151;
+      margin-bottom: 10px;
+    }
+    .guide-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .guide-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #f9fafb;
+      border-radius: 10px;
+      padding: 8px 10px;
+    }
+    .guide-icon { font-size: 1rem; }
+    .guide-text { font-size: 0.78rem; color: #4b5563; font-weight: 500; line-height: 1.3; }
+
+    /* ── 업로드 카드 ── */
+    .upload-card {
+      background: white;
+      border-radius: 20px;
+      padding: 32px 24px;
+      width: 100%; max-width: 420px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    .preview-area {
+      width: 100%; aspect-ratio: 1;
+      border-radius: 16px;
+      border: 2px dashed #d0d5dd;
+      background: #f9fafb;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      overflow: hidden; cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .preview-area:hover { border-color: #6366f1; }
+    .preview-area img   { width: 100%; height: 100%; object-fit: cover; }
+    .preview-placeholder { display: flex; flex-direction: column; align-items: center; gap: 8px; color: #9ca3af; }
+    .preview-placeholder span:first-child { font-size: 3rem; }
+    .preview-placeholder span:last-child  { font-size: 0.9rem; }
+
+    /* ── 버튼 ── */
+    .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .btn {
+      padding: 14px; border: none; border-radius: 12px;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn:active   { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-camera   { background: #6366f1; color: white; }
+    .btn-gallery  { background: #f3f4f6; color: #374151; }
+    .btn-analyze  { grid-column: 1/-1; background: #1a1a2e; color: white; padding: 16px; font-size: 1rem; }
+    .btn-analyze.loading { background: #6b7280; }
+
+    /* ── 결과 카드 ── */
+    .result-card {
+      background: white; border-radius: 20px; padding: 28px 24px;
+      width: 100%; max-width: 420px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      margin-top: 20px; display: none;
+    }
+    .result-card.visible { display: block; }
+    .result-title { font-size: 1rem; font-weight: 700; color: #374151; margin-bottom: 16px; }
+
+    /* 사진 품질 경고 */
+    .photo-warn {
+      display: none;
+      background: #fef2f2;
+      border-left: 3px solid #ef4444;
+      border-radius: 0 8px 8px 0;
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+      color: #991b1b;
+      line-height: 1.6;
+    }
+    .photo-warn.visible { display: block; }
+    .photo-warn strong  { display: block; margin-bottom: 4px; font-size: 0.9rem; }
+
+    /* 빈티지 뱃지 */
+    .vintage-badge {
+      display: none; align-items: center; gap: 6px;
+      background: #1a1a1a; border: 1px solid #FFD700; color: #FFD700;
+      font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em;
+      padding: 6px 14px; border-radius: 99px;
+      margin-bottom: 10px; width: fit-content;
+    }
+    .vintage-badge.visible { display: flex; }
+    .vintage-reason {
+      font-size: 0.82rem; color: #92400e;
+      background: #fefce8; border-left: 3px solid #FFD700;
+      border-radius: 0 8px 8px 0;
+      padding: 8px 12px; margin-bottom: 16px;
+      display: none; line-height: 1.5;
+    }
+    .vintage-reason.visible { display: block; }
+
+    /* 결과 행 */
+    .result-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 18px; }
+    .result-label { font-size: 0.8rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+    .result-value { font-size: 1rem; color: #1a1a2e; font-weight: 500; }
+
+    /* 바 차트 */
+    .bar-wrap { width: 100%; height: 8px; background: #f3f4f6; border-radius: 99px; overflow: hidden; margin-top: 6px; }
+    .bar-fill  { height: 100%; border-radius: 99px; transition: width 0.8s ease; }
+    .bar-stain  { background: #f59e0b; }
+    .bar-damage { background: #ef4444; }
+
+    /* 등급 뱃지 */
+    .grade-wrap {
+      display: flex; flex-direction: column; align-items: center;
+      margin-top: 8px; padding-top: 20px; border-top: 1px solid #f3f4f6;
+    }
+    .grade-badge {
+      width: 100px; height: 100px; border-radius: 24px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 3.5rem; font-weight: 800; color: white; margin-bottom: 10px;
+    }
+    .grade-desc   { font-size: 0.95rem; color: #6b7280; font-weight: 500; }
+    .grade-reason { font-size: 0.85rem; color: #9ca3af; text-align: center; margin-top: 8px; line-height: 1.5; }
+
+    /* 등급 기준표 */
+    .grade-table {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #f3f4f6;
+    }
+    .grade-table-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+    }
+    .grade-table-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      margin-bottom: 4px;
+      transition: background 0.15s;
+    }
+    .grade-table-row.current {
+      background: #f0f9ff;
+      outline: 1.5px solid #bae6fd;
+    }
+    .gt-badge {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; font-weight: 800; color: white;
+      flex-shrink: 0;
+    }
+    .gt-info {
+      flex: 1;
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    .gt-label { font-size: 0.82rem; font-weight: 600; color: #374151; }
+    .gt-tags  { display: flex; gap: 4px; flex-wrap: wrap; }
+    .gt-tag   { font-size: 0.68rem; font-weight: 600; padding: 2px 7px; border-radius: 99px; }
+    .gt-action { font-size: 0.75rem; color: #9ca3af; white-space: nowrap; flex-shrink: 0; }
+
+    /* 별도 카드 (관리가이드 / 등급기준) */
+    .side-card {
+      background: white;
+      border-radius: 20px;
+      padding: 24px;
+      width: 100%; max-width: 420px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      margin-top: 16px;
+    }
+    .side-card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #374151;
+      margin-bottom: 14px;
+    }
+
+    /* 관리 가이드 */
+    .action-wrap { }
+    .action-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #374151;
+      margin-bottom: 8px;
+    }
+    .guide-desc {
+      font-size: 0.85rem;
+      color: #6b7280;
+      line-height: 1.6;
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: #f9fafb;
+      border-radius: 10px;
+    }
+    .storage-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #6b7280;
+      margin-top: 14px;
+      margin-bottom: 6px;
+    }
+    .storage-tip {
+      font-size: 0.85rem;
+      color: #4b5563;
+      line-height: 1.6;
+      padding: 10px 12px;
+      background: #f9fafb;
+      border-radius: 10px;
+    }
+    .action-row {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1a1a2e;
+      margin-bottom: 10px;
+    }
+    .action-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .tag {
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 99px;
+    }
+    .tag-wash   { background: #dbeafe; color: #1d4ed8; }
+    .tag-repair { background: #fef9c3; color: #854d0e; }
+    .tag-ok     { background: #dcfce7; color: #166534; }
+    .storage-wrap { margin-top: 12px; }
+    .storage-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+      font-size: 0.82rem;
+      color: #6b7280;
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 8px 12px;
+      line-height: 1.5;
+    }
+
+    /* 판단 근거 */
+    .explain-wrap {
+      background: white;
+      border-radius: 20px;
+      padding: 24px;
+      width: 100%; max-width: 420px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      margin-top: 16px;
+    }
+    .explain-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #374151;
+      margin-bottom: 16px;
+    }
+    .explain-row {
+      margin-bottom: 18px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .explain-row:last-of-type { border-bottom: none; margin-bottom: 0; }
+    .explain-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    .explain-desc {
+      font-size: 0.82rem;
+      color: #4b5563;
+      line-height: 1.6;
+      margin-bottom: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .explain-item { display: block; }
+    .explain-warn {
+      margin-top: 6px;
+      color: #dc2626;
+      font-weight: 600;
+      background: #fef2f2;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+    .explain-scale {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .scale-item {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .scale-s { background: #dcfce7; color: #166534; }
+    .scale-a { background: #dbeafe; color: #1d4ed8; }
+    .scale-b { background: #fef9c3; color: #854d0e; }
+    .scale-c { background: #fee2e2; color: #991b1b; }
+    .scale-active {
+      outline: 2.5px solid #1a1a2e;
+      outline-offset: 2px;
+      font-weight: 800;
+      transform: scale(1.08);
+      display: inline-block;
+    }
+    .tag-dispose { background: #fee2e2; color: #991b1b; }
+    .explain-note {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-top: 14px;
+      line-height: 1.5;
+    }
+
+    /* 숨김 input */
+    #inputCamera, #inputGallery { display: none; }
+
+    /* 스피너 */
+    .spinner {
+      display: inline-block; width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.4); border-top-color: white;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<h1>👕 옷 품질 등급 AI</h1>
+
+<!-- 촬영 가이드 -->
+<div class="guide-card">
+  <div class="guide-title">📸 이렇게 찍으면 더 정확해요</div>
+  <div class="guide-list">
+    <div class="guide-item">
+      <span class="guide-icon">☀️</span>
+      <span class="guide-text">밝은 곳에서 찍기</span>
+    </div>
+    <div class="guide-item">
+      <span class="guide-icon">📐</span>
+      <span class="guide-text">최대한 펼쳐서 정면으로</span>
+    </div>
+    <div class="guide-item">
+      <span class="guide-icon">🟦</span>
+      <span class="guide-text">단색 배경이면 더 좋아요</span>
+    </div>
+  </div>
+</div>
+
+<!-- 업로드 카드 -->
+<div class="upload-card">
+  <div class="preview-area" id="previewArea"
+       onclick="document.getElementById('inputGallery').click()">
+    <div class="preview-placeholder" id="placeholder">
+      <span>👕</span>
+      <span>사진을 선택하세요</span>
+    </div>
+    <img id="previewImg" style="display:none" alt="미리보기" />
+  </div>
+
+  <div class="btn-group">
+    <button class="btn btn-camera"  onclick="document.getElementById('inputCamera').click()">📷 카메라</button>
+    <button class="btn btn-gallery" onclick="document.getElementById('inputGallery').click()">🖼️ 갤러리</button>
+    <button class="btn btn-analyze" id="btnAnalyze" disabled onclick="analyze()">분석하기</button>
+  </div>
+</div>
+
+<!-- 결과 카드 -->
+<div class="result-card" id="resultCard">
+  <div class="result-title">📊 분석 결과</div>
+
+  <!-- 사진 품질 경고 -->
+  <div class="photo-warn" id="photoWarn">
+    <strong>📸 사진을 다시 찍어주세요</strong>
+    <span id="photoWarnMsg"></span>
+  </div>
+
+  <!-- 빈티지 -->
+  <div class="vintage-badge"  id="vintageBadge">✨ VINTAGE</div>
+  <div class="vintage-reason" id="vintageReason"></div>
+
+  <div class="result-row">
+    <span class="result-label">옷 종류</span>
+    <span class="result-value" id="resClothing">-</span>
+  </div>
+  <div class="result-row">
+    <span class="result-label">소재</span>
+    <span class="result-value" id="resFabric">-</span>
+  </div>
+  <div class="result-row">
+    <span class="result-label">오염도</span>
+    <span class="result-value" id="resStain">-</span>
+    <div class="bar-wrap"><div class="bar-fill bar-stain"  id="barStain"  style="width:0%"></div></div>
+  </div>
+  <div class="result-row">
+    <span class="result-label">손상도</span>
+    <span class="result-value" id="resDamage">-</span>
+    <div class="bar-wrap"><div class="bar-fill bar-damage" id="barDamage" style="width:0%"></div></div>
+  </div>
+
+  <div class="grade-wrap">
+    <div class="grade-badge" id="gradeBadge">-</div>
+    <div class="grade-desc"  id="gradeDesc">-</div>
+    <div class="grade-reason" id="gradeReason">-</div>
+  </div>
+</div>
+
+<!-- 관리 가이드 카드 -->
+<div class="side-card" id="actionWrap" style="display:none">
+  <div class="side-card-title">💡 관리 가이드</div>
+  <div class="action-tags" id="actionTags"></div>
+  <div class="guide-desc" id="guideDesc"></div>
+  <div class="storage-wrap" id="storageWrap" style="display:none">
+    <div class="storage-label">📦 보관 팁</div>
+    <div class="storage-tip" id="storageTip"></div>
+  </div>
+</div>
+
+<!-- 등급 기준 카드 -->
+<div class="side-card" id="gradeTable" style="display:none">
+  <div class="side-card-title">📋 등급 기준</div>
+  <div class="grade-table-row" data-grade="S">
+    <span class="gt-badge" style="background:#22c55e">S</span>
+    <div class="gt-info">
+      <span class="gt-label">새것에 가까움</span>
+      <span class="gt-tags"><span class="gt-tag tag-ok">✅ 관리 불필요</span></span>
+    </div>
+    <span class="gt-action">그대로 착용</span>
+  </div>
+  <div class="grade-table-row" data-grade="A">
+    <span class="gt-badge" style="background:#3b82f6">A</span>
+    <div class="gt-info">
+      <span class="gt-label">약간의 사용감</span>
+      <span class="gt-tags"><span class="gt-tag tag-wash">🧺 세탁 권장</span> <span class="gt-tag tag-repair">🪡 수선 권장</span></span>
+    </div>
+    <span class="gt-action">그대로 착용</span>
+  </div>
+  <div class="grade-table-row" data-grade="B">
+    <span class="gt-badge" style="background:#f59e0b">B</span>
+    <div class="gt-info">
+      <span class="gt-label">눈에 띄는 결함</span>
+      <span class="gt-tags"><span class="gt-tag tag-wash">🧺 세탁 필요</span> <span class="gt-tag tag-repair">🪡 수선 필요</span></span>
+    </div>
+    <span class="gt-action">관리 후 착용</span>
+  </div>
+  <div class="grade-table-row" data-grade="C">
+    <span class="gt-badge" style="background:#ef4444">C</span>
+    <div class="gt-info">
+      <span class="gt-label">심각한 결함</span>
+      <span class="gt-tags"><span class="gt-tag tag-dispose">🔴 처분 권장</span></span>
+    </div>
+    <span class="gt-action">처분 권장</span>
+  </div>
+</div>
+
+<!-- 판단 근거 카드 -->
+<div class="side-card" id="explainWrap" style="display:none">
+  <div class="side-card-title">🔍 어떻게 판단했나요?</div>
+
+    <div class="explain-row">
+      <div class="explain-label">오염도 판단 기준</div>
+      <div class="explain-desc">
+        옷 전체 면적 대비 실제 오염 영역 비율로 계산해요.<br>
+        <span class="explain-item">• 색상 불균일 (원래 색과 다른 부분)</span>
+        <span class="explain-item">• 얼룩 패턴 (경계가 불규칙한 색상 변화)</span>
+        <span class="explain-item">• 밝기 차이 (특정 부위만 어둡거나 밝음)</span>
+        <span class="explain-item">• 빈티지 워싱/페이딩은 오염으로 보지 않아요</span>
+      </div>
+      <div class="explain-scale stain-scale">
+        <span class="scale-item scale-s">0~5% 깨끗</span>
+        <span class="scale-item scale-a">6~20% 약간</span>
+        <span class="scale-item scale-b">21~40% 눈에 띔</span>
+        <span class="scale-item scale-c">41%+ 심함</span>
+      </div>
+    </div>
+
+    <div class="explain-row">
+      <div class="explain-label">손상도 판단 기준</div>
+      <div class="explain-desc">
+        옷 전체 면적 대비 손상 영역 비율로 계산해요.<br>
+        <span class="explain-item">• 구멍/뚫린 부분 (배경이 비치는 영역)</span>
+        <span class="explain-item">• 실밥 풀림 (가장자리가 해진 부분)</span>
+        <span class="explain-item">• 마모 (표면이 닳아 색이 옅어진 부분)</span>
+        <span class="explain-item">• 보풀 (표면이 울퉁불퉁한 텍스처)</span>
+        <span class="explain-item">• 디스트레스드 디자인은 손상으로 보지 않아요</span>
+        <span class="explain-item explain-warn">⚠️ 손상도 36% 이상이면 오염도 관계없이 C등급</span>
+      </div>
+      <div class="explain-scale damage-scale">
+        <span class="scale-item scale-s">0~5% 없음</span>
+        <span class="scale-item scale-a">6~15% 약간</span>
+        <span class="scale-item scale-b">16~35% 눈에 띔</span>
+        <span class="scale-item scale-c">36%+ 심함</span>
+      </div>
+    </div>
+
+    <div class="explain-row" style="border-bottom:none">
+      <div class="explain-label">등급 산정 방식</div>
+      <div class="explain-desc">
+        <span class="explain-item">① 손상도 36% 이상 → 무조건 C등급</span>
+        <span class="explain-item">② 그 외 → 종합점수로 판단</span>
+        <span class="explain-item" style="margin-top:6px; color:#6366f1; font-weight:600;">종합점수 = 오염도 × 0.4 + 손상도 × 0.6</span>
+        <span class="explain-item" style="color:#9ca3af">(손상은 세탁으로 해결 불가 → 더 높은 가중치)</span>
+      </div>
+      <div class="explain-scale" style="flex-wrap:wrap; gap:4px">
+        <span class="scale-item scale-s">0~10점 S</span>
+        <span class="scale-item scale-a">11~25점 A</span>
+        <span class="scale-item scale-b">26~45점 B</span>
+        <span class="scale-item scale-c">46점+ C</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+<input id="inputCamera"  type="file" accept="image/*" capture="environment" onchange="onFileSelected(this)" />
+<input id="inputGallery" type="file" accept="image/*" onchange="onFileSelected(this)" />
+
+<script>
+  const GRADE_COLOR = { S:'#22c55e', A:'#3b82f6', B:'#f59e0b', C:'#ef4444' }
+  const GRADE_DESC  = { S:'새것에 가까움', A:'약간의 사용감', B:'눈에 띄는 결함', C:'심각한 결함' }
+  let selectedFile  = null
+
+  function onFileSelected(input) {
+    const file = input.files[0]
+    if (!file) return
+    selectedFile = file
+    const reader = new FileReader()
+    reader.onload = e => {
+      document.getElementById('placeholder').style.display = 'none'
+      const img = document.getElementById('previewImg')
+      img.src = e.target.result
+      img.style.display = 'block'
+    }
+    reader.readAsDataURL(file)
+    document.getElementById('btnAnalyze').disabled = false
+    document.getElementById('resultCard').classList.remove('visible')
+  }
+
+  async function analyze() {
+    if (!selectedFile) return
+    const btn = document.getElementById('btnAnalyze')
+    btn.disabled = true
+    btn.classList.add('loading')
+    btn.innerHTML = '<span class="spinner"></span> 분석 중...'
+
+    const formData = new FormData()
+    formData.append('file', selectedFile)
+
+    try {
+      const res = await fetch('/analyze', { method: 'POST', body: formData })
+      if (!res.ok) { const err = await res.json(); alert('오류: ' + (err.detail || res.statusText)); return }
+      showResult(await res.json())
+    } catch (e) {
+      alert('서버 연결 실패: ' + e.message)
+    } finally {
+      btn.disabled = false
+      btn.classList.remove('loading')
+      btn.innerHTML = '분석하기'
+    }
+  }
+
+  function showResult(r) {
+    // 사진 품질 경고
+    const photoWarn = document.getElementById('photoWarn')
+    const photoWarnMsg = document.getElementById('photoWarnMsg')
+    if (r.photo_quality === 'poor') {
+      photoWarn.classList.add('visible')
+      photoWarnMsg.textContent = r.photo_warn || ''
+    } else {
+      photoWarn.classList.remove('visible')
+    }
+
+    // 빈티지
+    const vBadge  = document.getElementById('vintageBadge')
+    const vReason = document.getElementById('vintageReason')
+    if (r.is_vintage) {
+      vBadge.classList.add('visible')
+      vReason.classList.add('visible')
+      vReason.textContent = '💬 ' + (r.vintage_reason || '')
+    } else {
+      vBadge.classList.remove('visible')
+      vReason.classList.remove('visible')
+    }
+
+    // 값 (poor면 '-' 표시)
+    document.getElementById('resClothing').textContent = r.clothing || '-'
+    document.getElementById('resFabric').textContent   = r.fabric   || '-'
+    document.getElementById('resStain').textContent    = r.stain  != null ? r.stain  + '%' : '-'
+    document.getElementById('resDamage').textContent   = r.damage != null ? r.damage + '%' : '-'
+
+    // 바
+    setTimeout(() => {
+      document.getElementById('barStain').style.width  = (r.stain  || 0) + '%'
+      document.getElementById('barDamage').style.width = (r.damage || 0) + '%'
+    }, 100)
+
+    // 등급
+    const gb = document.getElementById('gradeBadge')
+    if (r.grade) {
+      gb.textContent      = r.grade
+      gb.style.background = GRADE_COLOR[r.grade] || '#9ca3af'
+      document.getElementById('gradeDesc').textContent   = GRADE_DESC[r.grade] || ''
+      document.getElementById('gradeReason').textContent = r.reason || ''
+    } else {
+      gb.textContent      = '?'
+      gb.style.background = '#9ca3af'
+      document.getElementById('gradeDesc').textContent   = '사진 품질 개선 후 재분석 필요'
+      document.getElementById('gradeReason').textContent = ''
+    }
+
+    // 관리 가이드 카드
+    const actionWrap = document.getElementById('actionWrap')
+    if (r.grade) {
+      actionWrap.style.display = 'block'
+
+      // 등급별 설명
+      const guideDescMap = {
+        S: '옷 상태가 매우 좋아요. 현재 상태 그대로 보관하면 오래 입을 수 있어요.',
+        A: '전반적으로 양호한 상태예요. 정기적인 세탁과 올바른 보관만으로도 충분해요.',
+        B: '세탁이나 간단한 수선이 필요한 상태예요. 적절히 관리하면 계속 착용할 수 있어요.',
+        C: '오염이나 손상이 심해 착용하기 어려운 상태예요. 처분하거나 기부를 고려해보세요.',
+      }
+      document.getElementById('guideDesc').textContent = guideDescMap[r.grade] || ''
+
+      // 태그 — 오염도/손상도 각각 독립 판단
+      const tags = []
+      if (r.grade === 'C') {
+        tags.push({ text: '🔴 처분 권장', cls: 'tag-dispose' })
+      } else if (r.grade === 'S') {
+        tags.push({ text: '✅ 관리 불필요', cls: 'tag-ok' })
+      } else {
+        if (r.need_wash   && r.grade === 'A') tags.push({ text: '🧺 세탁 권장', cls: 'tag-wash' })
+        if (r.need_wash   && r.grade === 'B') tags.push({ text: '🧺 세탁 필요', cls: 'tag-wash' })
+        if (r.need_repair && r.grade === 'A') tags.push({ text: '🪡 수선 권장', cls: 'tag-repair' })
+        if (r.need_repair && r.grade === 'B') tags.push({ text: '🪡 수선 필요', cls: 'tag-repair' })
+        if (!r.need_wash && !r.need_repair)   tags.push({ text: '✅ 관리 불필요', cls: 'tag-ok' })
+      }
+      document.getElementById('actionTags').innerHTML =
+        tags.map(t => `<span class="tag ${t.cls}">${t.text}</span>`).join('')
+
+      const storageWrap = document.getElementById('storageWrap')
+      if (r.storage_tip) {
+        storageWrap.style.display = 'block'
+        document.getElementById('storageTip').textContent = r.storage_tip
+      } else {
+        storageWrap.style.display = 'none'
+      }
+    } else {
+      actionWrap.style.display = 'none'
+    }
+
+    // 등급 기준 카드
+    const gradeTable = document.getElementById('gradeTable')
+    if (r.grade) {
+      gradeTable.style.display = 'block'
+      document.querySelectorAll('.grade-table-row').forEach(row => {
+        row.classList.toggle('current', row.dataset.grade === r.grade)
+      })
+    } else {
+      gradeTable.style.display = 'none'
+    }
+
+    // 판단 근거 섹션
+    document.getElementById('explainWrap').style.display = r.grade ? 'block' : 'none'
+
+    // 카드 표시
+    const card = document.getElementById('resultCard')
+    card.classList.add('visible')
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+</script>
+</body>
+</html>
