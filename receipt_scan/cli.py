@@ -116,40 +116,25 @@ def print_result(result: dict):
     row("주소", result.get("주소"))
     row("결제방법", result.get("결제방법"))
 
-    # 태그 그룹별 출력
-    tag_groups = result.get("태그그룹", [])
-    if tag_groups:
-        print()
-        for group in tag_groups:
-            emoji = group.get("이모지", "📦")
-            tag = group.get("태그", "")
-            subtotal = group.get("소계", 0)
-            items = group.get("항목들", [])
-
-            # 태그 헤더
-            print(f"  {emoji} \033[95m{tag}\033[0m  (소계: \033[93m{subtotal:,}원\033[0m)")
-            print(f"  {'─' * 44}")
-
-            for item in items:
-                name = item.get("항목", "")
-                qty = item.get("수량", 1)
-                amount = item.get("금액")
-                qty_str = f" ×{qty}" if qty and qty > 1 else ""
-                amt_str = f"{amount:,}원" if amount else ""
-                print(f"    · {name}{qty_str:<22} {amt_str:>10}")
-            print()
-    else:
-        # 태그 없을 때 fallback: 기존 방식
-        items = result.get("이용내역", [])
-        if items:
-            print(f"\n  {'이용 내역':─<42}")
-            for item in items:
-                name = item.get("항목", "")
-                qty = item.get("수량", 1)
-                amount = item.get("금액")
-                qty_str = f" ×{qty}" if qty and qty > 1 else ""
-                amt_str = f"{amount:,}원" if amount else ""
-                print(f"  · {name}{qty_str:<25} {amt_str:>10}")
+    # 이용내역 출력 (항목명 + 태그 합쳐서)
+    print()
+    print(f"  {'이용 내역':─<42}")
+    items = result.get("이용내역", [])
+    if items:
+        for item in items:
+            name = item.get("항목", "")
+            qty = item.get("수량", 1)
+            amount = item.get("금액")
+            tag = item.get("태그", "")
+            # 항목명에 태그 내용이 이미 포함된 경우 중복 방지
+            if tag and tag not in name:
+                full_name = f"{name} {tag}"
+            else:
+                full_name = name
+            qty_str = f" ×{qty}" if qty and qty > 1 else ""
+            amt_str = f"{amount:,}원" if amount else ""
+            print(f"  · {full_name}{qty_str:<22} {amt_str:>10}")
+    print()
 
     print(f"  {'─' * 44}")
     if result.get("할인금액"):

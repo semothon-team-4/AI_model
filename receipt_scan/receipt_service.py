@@ -59,7 +59,7 @@ JSON만 반환하세요."""
 
 class ReceiptService:
     def __init__(self):
-        self.client = anthropic.Anthropic()
+        self.client = anthropic.Anthropic(api_key="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")
         self.model = "claude-sonnet-4-5"
 
     async def analyze(self, image_bytes: bytes, media_type: str) -> ReceiptResult:
