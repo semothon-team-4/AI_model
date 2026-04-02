@@ -1,0 +1,11 @@
+anthropic>=0.30.0
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9   # FastAPI 파일 업로드 필수
+
+# 카메라 촬영 (CLI --camera 옵션)
+opencv-python>=4.9.0
+
+# HEIC 지원 (아이폰 사진)
+pillow-heif>=0.16.0
+Pillow>=10.0.0
