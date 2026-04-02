@@ -1,0 +1,6 @@
+venv/
+.env
+__pycache__/
+*.pyc
+new_care_label/result_*.jpg
+receipt_scan/*.json
