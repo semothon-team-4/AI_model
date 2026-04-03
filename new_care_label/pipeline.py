@@ -75,7 +75,7 @@ SYMBOL_DESC = {
 }
 
 # =============================================
-# PNG 이미지 로드 (base64 인코딩 → HTML 임베드용)
+# PNG 이미지 로드 (base64 인코딩)
 # =============================================
 def load_symbol_img_b64(symbol_id):
     """symbols/{symbol_id}.png 를 base64로 반환. 없으면 None."""
@@ -94,7 +94,7 @@ def symbol_img_tag(symbol_id, size=56):
     return f'<div style="width:{size}px;height:{size}px;display:flex;align-items:center;justify-content:center;background:#f0f0f0;border-radius:4px;font-size:10px;color:#888;">{symbol_id[:6]}</div>'
 
 # =============================================
-# 예측
+# 예측 (icon_b64 포함)
 # =============================================
 def predict_care_label(image_path, conf=0.1, iou=0.3):
     results = model(image_path, conf=conf, iou=iou, verbose=False)[0]
@@ -104,11 +104,15 @@ def predict_care_label(image_path, conf=0.1, iou=0.3):
         cls_conf = float(box.conf[0])
         cls_name = model.names[cls_id]
         x1, y1, x2, y2 = map(int, box.xyxy[0])
+
+        icon_b64 = load_symbol_img_b64(cls_name)  # PNG 없으면 None
+
         output.append({
             "symbol":     cls_name,
             "confidence": round(cls_conf, 3),
             "bbox":       [x1, y1, x2, y2],
             "desc":       SYMBOL_DESC.get(cls_name, "설명 없음"),
+            "icon_b64":   icon_b64,  # PNG 있으면 base64 문자열, 없으면 null
         })
     output.sort(key=lambda x: x["confidence"], reverse=True)
     return output
@@ -144,15 +148,19 @@ def save_html_report(image_path, results, save_path):
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # 심볼 카드 HTML
+    # 심볼 카드 HTML (icon_b64 우선 사용, 없으면 symbol_img_tag fallback)
     cards_html = ""
     for r in results:
         sym      = r["symbol"]
         conf     = r["confidence"]
         desc     = r["desc"]
-        img_tag  = symbol_img_tag(sym, size=56)
         conf_pct = int(conf * 100)
         bar_color = "#22c55e" if conf_pct >= 70 else "#f59e0b" if conf_pct >= 40 else "#ef4444"
+
+        if r.get("icon_b64"):
+            img_tag = f'<img src="data:image/png;base64,{r["icon_b64"]}" width="44" height="44" style="object-fit:contain;filter:invert(1);">'
+        else:
+            img_tag = symbol_img_tag(sym, size=44)
 
         cards_html += f"""
         <div class="card">
@@ -270,13 +278,13 @@ if __name__ == "__main__":
     print(f"분석 중: {TEST_IMAGE}\n")
     results = predict_care_label(TEST_IMAGE, conf=0.1)
 
-    # 터미널 출력 (기존 유지)
+    # 터미널 출력
     print(f"감지된 심볼: {len(results)}개\n")
-    print(f"{'심볼':<40} {'신뢰도':>6}  설명")
-    print("-" * 90)
+    print(f"{'심볼':<40} {'신뢰도':>6}  {'아이콘':>6}  설명")
+    print("-" * 100)
     for r in results:
-        has_img = "🖼" if os.path.exists(os.path.join(SYMBOL_IMG_DIR, f"{r['symbol']}.png")) else "  "
-        print(f"{has_img} {r['symbol']:<38} {r['confidence']:>6.3f}  {r['desc']}")
+        has_img = "🖼" if r["icon_b64"] else "  "
+        print(f"{has_img} {r['symbol']:<38} {r['confidence']:>6.3f}  {has_img}  {r['desc']}")
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -284,6 +292,6 @@ if __name__ == "__main__":
     img_save = os.path.join(BASE, f"result_{timestamp}.jpg")
     visualize(TEST_IMAGE, results, save_path=img_save)
 
-    # HTML 리포트 저장 (PNG 심볼 매핑 포함)
+    # HTML 리포트 저장
     html_save = os.path.join(BASE, f"report_{timestamp}.html")
     save_html_report(TEST_IMAGE, results, html_save)
