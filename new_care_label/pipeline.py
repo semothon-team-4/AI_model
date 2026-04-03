@@ -3,6 +3,7 @@ from datetime import datetime
 import cv2
 import sys
 import os
+import base64
 
 # =============================================
 # 모델 로드
@@ -10,6 +11,12 @@ import os
 BASE = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(BASE, "unified_best.pt")
 model = YOLO(MODEL_PATH)
+
+# =============================================
+# 심볼 PNG 폴더 경로
+# PNG 파일명 = 심볼 ID 그대로 (예: 30C.png, hand_wash.png)
+# =============================================
+SYMBOL_IMG_DIR = os.path.join(BASE, "symbols")   # ← PNG들 넣는 폴더
 
 # =============================================
 # 심볼 한국어 설명
@@ -68,6 +75,25 @@ SYMBOL_DESC = {
 }
 
 # =============================================
+# PNG 이미지 로드 (base64 인코딩 → HTML 임베드용)
+# =============================================
+def load_symbol_img_b64(symbol_id):
+    """symbols/{symbol_id}.png 를 base64로 반환. 없으면 None."""
+    path = os.path.join(SYMBOL_IMG_DIR, f"{symbol_id}.png")
+    if not os.path.exists(path):
+        return None
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
+
+def symbol_img_tag(symbol_id, size=56):
+    """심볼 PNG → <img> 태그. 없으면 placeholder div 반환."""
+    b64 = load_symbol_img_b64(symbol_id)
+    if b64:
+        return f'<img src="data:image/png;base64,{b64}" width="{size}" height="{size}" style="object-fit:contain;filter:invert(1);">'
+    # PNG 없을 때 fallback: 심볼 ID 첫 글자 표시
+    return f'<div style="width:{size}px;height:{size}px;display:flex;align-items:center;justify-content:center;background:#f0f0f0;border-radius:4px;font-size:10px;color:#888;">{symbol_id[:6]}</div>'
+
+# =============================================
 # 예측
 # =============================================
 def predict_care_label(image_path, conf=0.1, iou=0.3):
@@ -88,7 +114,7 @@ def predict_care_label(image_path, conf=0.1, iou=0.3):
     return output
 
 # =============================================
-# 시각화
+# 시각화 (기존 cv2 방식 유지)
 # =============================================
 def visualize(image_path, results, save_path=None):
     img = cv2.imread(image_path)
@@ -100,11 +126,136 @@ def visualize(image_path, results, save_path=None):
                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, (34, 197, 94), 1)
     if save_path:
         cv2.imwrite(save_path, img)
-        print(f"결과 저장: {save_path}")
+        print(f"결과 이미지 저장: {save_path}")
     else:
         cv2.imshow("Care Label Result", img)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+
+# =============================================
+# HTML 리포트 생성 (PNG 심볼 매핑 포함)
+# =============================================
+def save_html_report(image_path, results, save_path):
+    # 분석 대상 이미지 base64
+    with open(image_path, "rb") as f:
+        img_b64 = base64.b64encode(f.read()).decode("utf-8")
+    ext = os.path.splitext(image_path)[1].lower().replace(".", "")
+    mime = "jpeg" if ext in ("jpg", "jpeg") else "png"
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # 심볼 카드 HTML
+    cards_html = ""
+    for r in results:
+        sym      = r["symbol"]
+        conf     = r["confidence"]
+        desc     = r["desc"]
+        img_tag  = symbol_img_tag(sym, size=56)
+        conf_pct = int(conf * 100)
+        bar_color = "#22c55e" if conf_pct >= 70 else "#f59e0b" if conf_pct >= 40 else "#ef4444"
+
+        cards_html += f"""
+        <div class="card">
+          <div class="card-icon">{img_tag}</div>
+          <div class="card-body">
+            <div class="sym-id">{sym}</div>
+            <div class="sym-desc">{desc}</div>
+            <div class="conf-bar-wrap">
+              <div class="conf-bar" style="width:{conf_pct}%;background:{bar_color};"></div>
+            </div>
+            <div class="conf-label">{conf:.3f}</div>
+          </div>
+        </div>"""
+
+    html = f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>케어 라벨 분석 결과</title>
+<style>
+  *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+          background: #f5f4f0; color: #111; min-height: 100vh; }}
+
+  header {{ background: #111; color: #f5f4f0; padding: 18px 28px;
+            display: flex; align-items: center; justify-content: space-between; }}
+  header h1 {{ font-size: 17px; font-weight: 600; }}
+  header small {{ font-size: 11px; opacity: 0.45; }}
+
+  .layout {{ display: grid; grid-template-columns: 340px 1fr;
+             gap: 20px; padding: 20px 28px; max-width: 1200px; margin: 0 auto; }}
+
+  .panel {{ background: #fff; border-radius: 10px; border: 1px solid #e5e3dc;
+            overflow: hidden; }}
+
+  .panel-title {{ font-size: 11px; font-weight: 600; color: #888;
+                  letter-spacing: 0.5px; text-transform: uppercase;
+                  padding: 12px 16px; border-bottom: 1px solid #e5e3dc; }}
+
+  .source-img {{ width: 100%; display: block; }}
+
+  .meta {{ padding: 12px 16px; font-size: 12px; color: #666; line-height: 1.8; }}
+  .meta b {{ color: #111; font-weight: 600; }}
+
+  .cards {{ padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }}
+
+  .card {{ display: flex; gap: 14px; align-items: flex-start;
+           padding: 12px; border-radius: 8px; border: 1px solid #e5e3dc;
+           background: #fafaf8; }}
+  .card-icon {{ flex-shrink: 0; width: 56px; height: 56px;
+                background: #111; border-radius: 8px;
+                display: flex; align-items: center; justify-content: center; }}
+  .card-icon img {{ filter: invert(1); width: 44px; height: 44px; object-fit: contain; }}
+  .card-body {{ flex: 1; }}
+  .sym-id {{ font-size: 12px; font-weight: 600; margin-bottom: 3px; }}
+  .sym-desc {{ font-size: 12px; color: #555; margin-bottom: 8px; line-height: 1.4; }}
+  .conf-bar-wrap {{ height: 4px; background: #e5e3dc; border-radius: 2px; margin-bottom: 3px; }}
+  .conf-bar {{ height: 4px; border-radius: 2px; transition: width 0.3s; }}
+  .conf-label {{ font-size: 10px; color: #999; }}
+
+  @media (max-width: 720px) {{
+    .layout {{ grid-template-columns: 1fr; }}
+  }}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🧺 케어 라벨 분석 결과</h1>
+  <small>{timestamp}</small>
+</header>
+
+<div class="layout">
+
+  <div>
+    <div class="panel">
+      <div class="panel-title">분석 이미지</div>
+      <img class="source-img" src="data:image/{mime};base64,{img_b64}" alt="분석 이미지">
+      <div class="meta">
+        <b>파일</b>: {os.path.basename(image_path)}<br>
+        <b>감지 심볼</b>: {len(results)}개<br>
+        <b>분석 시각</b>: {timestamp}
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <div class="panel-title">감지된 심볼 ({len(results)}개)</div>
+      <div class="cards">
+        {cards_html if cards_html else '<div style="padding:20px;color:#aaa;font-size:13px;">감지된 심볼이 없습니다.</div>'}
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>"""
+
+    with open(save_path, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(f"HTML 리포트 저장: {save_path}")
 
 # =============================================
 # 실행
@@ -119,12 +270,20 @@ if __name__ == "__main__":
     print(f"분석 중: {TEST_IMAGE}\n")
     results = predict_care_label(TEST_IMAGE, conf=0.1)
 
+    # 터미널 출력 (기존 유지)
     print(f"감지된 심볼: {len(results)}개\n")
     print(f"{'심볼':<40} {'신뢰도':>6}  설명")
     print("-" * 90)
     for r in results:
-        print(f"{r['symbol']:<40} {r['confidence']:>6.3f}  {r['desc']}")
+        has_img = "🖼" if os.path.exists(os.path.join(SYMBOL_IMG_DIR, f"{r['symbol']}.png")) else "  "
+        print(f"{has_img} {r['symbol']:<38} {r['confidence']:>6.3f}  {r['desc']}")
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    save_path = os.path.join(BASE, f"result_{timestamp}.jpg")
-    visualize(TEST_IMAGE, results, save_path=save_path)
+
+    # cv2 결과 이미지 저장
+    img_save = os.path.join(BASE, f"result_{timestamp}.jpg")
+    visualize(TEST_IMAGE, results, save_path=img_save)
+
+    # HTML 리포트 저장 (PNG 심볼 매핑 포함)
+    html_save = os.path.join(BASE, f"report_{timestamp}.html")
+    save_html_report(TEST_IMAGE, results, html_save)
