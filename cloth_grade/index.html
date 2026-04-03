@@ -474,19 +474,11 @@
 <!-- 등급 기준 카드 -->
 <div class="side-card" id="gradeTable" style="display:none">
   <div class="side-card-title">📋 등급 기준</div>
-  <div class="grade-table-row" data-grade="S">
-    <span class="gt-badge" style="background:#22c55e">S</span>
-    <div class="gt-info">
-      <span class="gt-label">새것에 가까움</span>
-      <span class="gt-tags"><span class="gt-tag tag-ok">✅ 관리 불필요</span></span>
-    </div>
-    <span class="gt-action">그대로 착용</span>
-  </div>
   <div class="grade-table-row" data-grade="A">
     <span class="gt-badge" style="background:#3b82f6">A</span>
     <div class="gt-info">
-      <span class="gt-label">약간의 사용감</span>
-      <span class="gt-tags"><span class="gt-tag tag-wash">🧺 세탁 권장</span> <span class="gt-tag tag-repair">🪡 수선 권장</span></span>
+      <span class="gt-label">양호한 상태</span>
+      <span class="gt-tags"><span class="gt-tag tag-ok">✅ 관리 불필요</span></span>
     </div>
     <span class="gt-action">그대로 착용</span>
   </div>
@@ -522,8 +514,7 @@
         <span class="explain-item">• 빈티지 워싱/페이딩은 오염으로 보지 않아요</span>
       </div>
       <div class="explain-scale stain-scale">
-        <span class="scale-item scale-s">0~5% 깨끗</span>
-        <span class="scale-item scale-a">6~20% 약간</span>
+        <span class="scale-item scale-a">0~20% 양호</span>
         <span class="scale-item scale-b">21~40% 눈에 띔</span>
         <span class="scale-item scale-c">41%+ 심함</span>
       </div>
@@ -541,8 +532,7 @@
         <span class="explain-item explain-warn">⚠️ 손상도 36% 이상이면 오염도 관계없이 C등급</span>
       </div>
       <div class="explain-scale damage-scale">
-        <span class="scale-item scale-s">0~5% 없음</span>
-        <span class="scale-item scale-a">6~15% 약간</span>
+        <span class="scale-item scale-a">0~15% 양호</span>
         <span class="scale-item scale-b">16~35% 눈에 띔</span>
         <span class="scale-item scale-c">36%+ 심함</span>
       </div>
@@ -557,8 +547,7 @@
         <span class="explain-item" style="color:#9ca3af">(손상은 세탁으로 해결 불가 → 더 높은 가중치)</span>
       </div>
       <div class="explain-scale" style="flex-wrap:wrap; gap:4px">
-        <span class="scale-item scale-s">0~10점 S</span>
-        <span class="scale-item scale-a">11~25점 A</span>
+        <span class="scale-item scale-a">0~25점 A</span>
         <span class="scale-item scale-b">26~45점 B</span>
         <span class="scale-item scale-c">46점+ C</span>
       </div>
@@ -570,8 +559,8 @@
 <input id="inputGallery" type="file" accept="image/*" onchange="onFileSelected(this)" />
 
 <script>
-  const GRADE_COLOR = { S:'#22c55e', A:'#3b82f6', B:'#f59e0b', C:'#ef4444' }
-  const GRADE_DESC  = { S:'새것에 가까움', A:'약간의 사용감', B:'눈에 띄는 결함', C:'심각한 결함' }
+  const GRADE_COLOR = { A:'#3b82f6', B:'#f59e0b', C:'#ef4444' }
+  const GRADE_DESC  = { A:'양호한 상태', B:'눈에 띄는 결함', C:'심각한 결함' }
   let selectedFile  = null
 
   function onFileSelected(input) {
@@ -669,7 +658,6 @@
 
       // 등급별 설명
       const guideDescMap = {
-        S: '옷 상태가 매우 좋아요. 현재 상태 그대로 보관하면 오래 입을 수 있어요.',
         A: '전반적으로 양호한 상태예요. 정기적인 세탁과 올바른 보관만으로도 충분해요.',
         B: '세탁이나 간단한 수선이 필요한 상태예요. 적절히 관리하면 계속 착용할 수 있어요.',
         C: '오염이나 손상이 심해 착용하기 어려운 상태예요. 처분하거나 기부를 고려해보세요.',
@@ -680,7 +668,7 @@
       const tags = []
       if (r.grade === 'C') {
         tags.push({ text: '🔴 처분 권장', cls: 'tag-dispose' })
-      } else if (r.grade === 'S') {
+      } else if (r.grade === 'A' && !r.need_wash && !r.need_repair) {
         tags.push({ text: '✅ 관리 불필요', cls: 'tag-ok' })
       } else {
         if (r.need_wash   && r.grade === 'A') tags.push({ text: '🧺 세탁 권장', cls: 'tag-wash' })
