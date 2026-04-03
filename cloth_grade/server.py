@@ -81,9 +81,9 @@ poor로 판단하는 경우 (이 경우만 poor):
 
 2단계 — 손상도 36% 미만이면 종합점수로 판단:
   종합점수 = 오염도 × 0.4 + 손상도 × 0.6
-  - A: 종합점수 0~25
-  - B: 종합점수 26~45
-  - C: 종합점수 46+
+  - A: 종합점수 0~15
+  - B: 종합점수 16~35
+  - C: 종합점수 36+
 
 (손상은 세탁으로 해결 불가하므로 더 높은 가중치 부여)
 
@@ -107,7 +107,7 @@ poor로 판단하는 경우 (이 경우만 poor):
   "grade": "A/B/C 중 하나 (photo_quality가 poor면 null)",
   "need_wash": true 또는 false (오염도 기준, poor면 null),
   "need_repair": true 또는 false (손상도 기준, poor면 null),
-  "action": "추천 행동 (그대로 착용 / 세탁 권장 / 수선 권장 / 세탁+수선 권장 / 처분 권장, poor면 null)",
+  "action_reason": "추천 행동에 대한 자연스러운 설명 한 줄 (예: 오염이 있어 세탁 후 입으면 더 오래 입을 수 있어요, poor면 null)",
   "storage_tip": "소재/옷 종류에 맞는 보관 팁 한 줄 (poor면 null)",
   "reason": "등급 판단 이유 한 줄 (poor면 null)"
 }
@@ -127,7 +127,7 @@ class GradeResult(BaseModel):
     grade          : str | None
     need_wash      : bool | None
     need_repair    : bool | None
-    action         : str | None
+    action_reason  : str | None
     storage_tip    : str | None
     reason         : str | None
 

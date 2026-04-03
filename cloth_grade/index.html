@@ -261,15 +261,15 @@
       gap: 6px;
       margin-bottom: 10px;
     }
-    .tag {
-      font-size: 0.78rem;
-      font-weight: 600;
-      padding: 4px 10px;
-      border-radius: 99px;
+    .action-reason {
+      font-size: 0.88rem;
+      color: #4b5563;
+      background: #f9fafb;
+      border-radius: 10px;
+      padding: 10px 14px;
+      line-height: 1.6;
+      margin-bottom: 10px;
     }
-    .tag-wash   { background: #dbeafe; color: #1d4ed8; }
-    .tag-repair { background: #fef9c3; color: #854d0e; }
-    .tag-ok     { background: #dcfce7; color: #166534; }
     .storage-wrap { margin-top: 12px; }
     .storage-label {
       font-size: 0.78rem;
@@ -463,8 +463,7 @@
 <!-- 관리 가이드 카드 -->
 <div class="side-card" id="actionWrap" style="display:none">
   <div class="side-card-title">💡 관리 가이드</div>
-  <div class="action-tags" id="actionTags"></div>
-  <div class="guide-desc" id="guideDesc"></div>
+  <div class="action-reason" id="actionReason"></div>
   <div class="storage-wrap" id="storageWrap" style="display:none">
     <div class="storage-label">📦 보관 팁</div>
     <div class="storage-tip" id="storageTip"></div>
@@ -478,7 +477,6 @@
     <span class="gt-badge" style="background:#3b82f6">A</span>
     <div class="gt-info">
       <span class="gt-label">양호한 상태</span>
-      <span class="gt-tags"><span class="gt-tag tag-ok">✅ 관리 불필요</span></span>
     </div>
     <span class="gt-action">그대로 착용</span>
   </div>
@@ -486,7 +484,6 @@
     <span class="gt-badge" style="background:#f59e0b">B</span>
     <div class="gt-info">
       <span class="gt-label">눈에 띄는 결함</span>
-      <span class="gt-tags"><span class="gt-tag tag-wash">🧺 세탁 필요</span> <span class="gt-tag tag-repair">🪡 수선 필요</span></span>
     </div>
     <span class="gt-action">관리 후 착용</span>
   </div>
@@ -547,9 +544,9 @@
         <span class="explain-item" style="color:#9ca3af">(손상은 세탁으로 해결 불가 → 더 높은 가중치)</span>
       </div>
       <div class="explain-scale" style="flex-wrap:wrap; gap:4px">
-        <span class="scale-item scale-a">0~25점 A</span>
-        <span class="scale-item scale-b">26~45점 B</span>
-        <span class="scale-item scale-c">46점+ C</span>
+        <span class="scale-item scale-a">0~15점 A</span>
+        <span class="scale-item scale-b">16~35점 B</span>
+        <span class="scale-item scale-c">36점+ C</span>
       </div>
     </div>
 
@@ -656,29 +653,7 @@
     if (r.grade) {
       actionWrap.style.display = 'block'
 
-      // 등급별 설명
-      const guideDescMap = {
-        A: '전반적으로 양호한 상태예요. 정기적인 세탁과 올바른 보관만으로도 충분해요.',
-        B: '세탁이나 간단한 수선이 필요한 상태예요. 적절히 관리하면 계속 착용할 수 있어요.',
-        C: '오염이나 손상이 심해 착용하기 어려운 상태예요. 처분하거나 기부를 고려해보세요.',
-      }
-      document.getElementById('guideDesc').textContent = guideDescMap[r.grade] || ''
-
-      // 태그 — 오염도/손상도 각각 독립 판단
-      const tags = []
-      if (r.grade === 'C') {
-        tags.push({ text: '🔴 처분 권장', cls: 'tag-dispose' })
-      } else if (r.grade === 'A' && !r.need_wash && !r.need_repair) {
-        tags.push({ text: '✅ 관리 불필요', cls: 'tag-ok' })
-      } else {
-        if (r.need_wash   && r.grade === 'A') tags.push({ text: '🧺 세탁 권장', cls: 'tag-wash' })
-        if (r.need_wash   && r.grade === 'B') tags.push({ text: '🧺 세탁 필요', cls: 'tag-wash' })
-        if (r.need_repair && r.grade === 'A') tags.push({ text: '🪡 수선 권장', cls: 'tag-repair' })
-        if (r.need_repair && r.grade === 'B') tags.push({ text: '🪡 수선 필요', cls: 'tag-repair' })
-        if (!r.need_wash && !r.need_repair)   tags.push({ text: '✅ 관리 불필요', cls: 'tag-ok' })
-      }
-      document.getElementById('actionTags').innerHTML =
-        tags.map(t => `<span class="tag ${t.cls}">${t.text}</span>`).join('')
+      document.getElementById('actionReason').textContent = r.action_reason || ''
 
       const storageWrap = document.getElementById('storageWrap')
       if (r.storage_tip) {
