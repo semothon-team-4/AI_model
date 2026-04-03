@@ -137,7 +137,7 @@ def analyze_image(image_bytes: bytes, media_type: str) -> GradeResult:
     img_data = base64.standard_b64encode(image_bytes).decode()
 
     response = client.messages.create(
-        model='claude-opus-4-6',
+        model='claude-haiku-4-5-20251001',
         max_tokens=512,
         messages=[{
             'role': 'user',
