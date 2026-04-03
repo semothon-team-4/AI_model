@@ -25,18 +25,29 @@ def capture_from_camera() -> bytes:
         print("   pip install opencv-python")
         sys.exit(1)
 
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)  # Windows DirectShow 사용
     if not cap.isOpened():
-        print("❌ 카메라를 열 수 없습니다.")
+        # DirectShow 실패 시 기본 백엔드로 재시도
+        cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("❌ 카메라를 열 수 없습니다. 카메라가 연결되어 있는지 확인하세요.")
         sys.exit(1)
+
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
     print("\n📷 카메라가 켜졌습니다.")
     print("  [SPACE] 촬영  |  [Q] 취소\n")
+
+    # 창을 반드시 앞으로 띄우기
+    cv2.namedWindow("Receipt Scanner", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("Receipt Scanner", 960, 540)
 
     frame_bytes = None
     while True:
         ret, frame = cap.read()
         if not ret:
+            print("❌ 카메라에서 프레임을 읽을 수 없습니다.")
             break
 
         # 영수증 촬영 가이드라인 오버레이
@@ -48,15 +59,15 @@ def capture_from_camera() -> bytes:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
 
         cv2.imshow("Receipt Scanner", frame)
+        cv2.setWindowProperty("Receipt Scanner", cv2.WND_PROP_TOPMOST, 1)  # 항상 위에
 
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord("q"):
+        key = cv2.waitKey(30) & 0xFF  # 1ms → 30ms로 안정화
+        if key == ord("q") or key == 27:  # Q 또는 ESC
             print("촬영을 취소했습니다.")
             cap.release()
             cv2.destroyAllWindows()
             sys.exit(0)
         elif key == ord(" "):
-            # JPEG 인코딩
             _, buf = cv2.imencode(".jpg", frame)
             frame_bytes = buf.tobytes()
             print("✅ 촬영 완료!")
@@ -89,11 +100,10 @@ def load_from_file(path: str) -> tuple[bytes, str]:
 
 
 def print_result(result: dict):
-    """분석 결과를 터미널에 예쁘게 출력"""
-    LINE = "─" * 44
-    print(f"\n{'━' * 44}")
+    """분석 결과를 태그 그룹별로 터미널에 출력"""
+    print(f"\n{'━' * 48}")
     print("  🧾  영수증 분석 결과")
-    print(f"{'━' * 44}")
+    print(f"{'━' * 48}")
 
     def row(label, value, color="\033[0m"):
         if value:
@@ -106,26 +116,35 @@ def print_result(result: dict):
     row("주소", result.get("주소"))
     row("결제방법", result.get("결제방법"))
 
+    # 이용내역 출력 (항목명 + 태그 합쳐서)
+    print()
+    print(f"  {'이용 내역':─<42}")
     items = result.get("이용내역", [])
     if items:
-        print(f"\n  {'이용 내역':─<40}")
         for item in items:
             name = item.get("항목", "")
             qty = item.get("수량", 1)
             amount = item.get("금액")
+            tag = item.get("태그", "")
+            # 항목명에 태그 내용이 이미 포함된 경우 중복 방지
+            if tag and tag not in name:
+                full_name = f"{name} {tag}"
+            else:
+                full_name = name
             qty_str = f" ×{qty}" if qty and qty > 1 else ""
             amt_str = f"{amount:,}원" if amount else ""
-            print(f"  · {name}{qty_str:<25} {amt_str:>10}")
+            print(f"  · {full_name}{qty_str:<22} {amt_str:>10}")
+    print()
 
-    print(f"\n  {LINE}")
+    print(f"  {'─' * 44}")
     if result.get("할인금액"):
-        print(f"  {'할인':<10} -{result['할인금액']:,}원")
+        print(f"  {'할인':<10} -\033[91m{result['할인금액']:,}원\033[0m")
     if result.get("부가세"):
         print(f"  {'부가세':<10} {result['부가세']:,}원")
     total = result.get("총금액")
     if total:
         print(f"  \033[92m{'총 결제액':<10} {total:,}원\033[0m")
-    print(f"{'━' * 44}\n")
+    print(f"{'━' * 48}\n")
 
 
 def save_result(result: dict, image_path: str = "camera"):
